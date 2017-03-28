@@ -1,11 +1,47 @@
 from graph_tool.all import *
 import numpy as np
-from pylab import *
+import matplotlib.pyplot as plt
 import sys
 import os
 
+def create_hist(x, x_title, y_title, path, title, is_ready=False):
+	if is_ready:
+		myX = x
+	else:
+		myX = []
+		for i, x in enumerate(x):
+			aux = [i]*int(x)
+			myX+=aux
+	myY = np.arange(max(myX)+2)
+
+	plt.figure(figsize=(6,4))
+	plt.title(title)
+	plt.gca().hist(myX, myY, normed=1, facecolor='blue', alpha=0.7, rwidth=0.9, align='left')
+	plt.xlabel(x_title)
+	plt.ylabel(y_title)
+	plt.tight_layout()
+	plt.savefig(path)
+
+def create_plot(y, x_title, y_title, path, title):
+	x = np.arange(len(y))
+	plt.figure(figsize=(6,4))
+	plt.title(title)
+	plt.gca().plot(x, y, color='blue', alpha=0.7, linestyle='None', marker='o')
+	plt.xlabel(x_title)
+	plt.ylabel(y_title)
+	plt.tight_layout()
+	plt.savefig(path)
+
+def my_pct(values):
+	def my_autopct(pct):
+		if pct > 1:
+			return '{p:.1f}%'.format(p=pct)
+		else:
+			return ''     
+	return my_autopct
+
 if __name__ == '__main__':
-	# Graph path: graph type
+	# {Graph path: graph type}
 	graphsInfo = {
 		"/Users/admin/Documents/UFRJ/RedesComplexas_2017.1/Trabalho1/dolphins/dolphins.gml": ["undirected"],
 		"/Users/admin/Documents/UFRJ/RedesComplexas_2017.1/Trabalho1/lesmis/lesmis.gml": ["weighted", "undirected"],
@@ -13,96 +49,122 @@ if __name__ == '__main__':
 	}
 
 	for graphPath, graphType in graphsInfo.items():
-		print('\n{:<21}: {}'.format('Graph', graphPath.split('/')[-1]))
-
-		#Check graph format
-		if graphPath.endswith('.gml'):
-			g = load_graph(graphPath)
-		else:
-			raise Exception('Please provide an .gml, .gt, .xml or .dot graph format')
 		graphDir = graphPath.replace(graphPath.split('/')[-1], '')
-
-		# pos = graph_tool.draw.sfdp_layout(g)
-		# graph_tool.draw.graph_draw(g, pos=pos, vertex_text=g.vertex_index, output=graphDir+"graph-draw-sfdp.pdf")
-		# pos = graph_tool.draw.arf_layout(g, max_iter=0)
-		# graph_tool.draw.graph_draw(g, pos=pos, vertex_text=g.vertex_index, output=graphDir+"graph-draw-arf.pdf")
+		graphName = graphPath.split('/')[-1]
+		print('\n{:<15}: {}'.format('Graph', graphName))
+		g = load_graph(graphPath)
 
 		# Qnt de nos e arestas
 		edges = g.get_edges()
 		vertices = g.get_vertices()
+		print ('{:<15}: {:^8}, {:<8}: {:^8}'.format('Arestas', len(edges), 'Vertices', len(vertices)))
 
 		weight = None
 		if "weighted" in graphType:
 			weight = g.edge_properties['value']
-		print ('{:<21}: {:^10}, {:<15}: {:^10}'.format('Arestas', len(edges), 'Vertices', len(vertices)))
-
-		# Grau Medio
-		grau_medio, dp_grau_medio = graph_tool.stats.vertex_average(g, 'total')
-		print('{:<21}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Grau medio total', grau_medio, 'desvio padrao', dp_grau_medio))
 		directed = False
 		if "directed" in graphType:
 			directed = True
-			grau_medio_in, dp_grau_medio_in = graph_tool.stats.vertex_average(g, 'in')
-			grau_medio_out, dp_grau_medio_out = graph_tool.stats.vertex_average(g, 'out')
-			print('{:<21}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Grau medio de entrada', grau_medio_in, 'desvio padrao', dp_grau_medio_in))
-			print('{:<21}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Grau medio de saida', grau_medio_out, 'desvio padrao', dp_grau_medio_out))
 
 
-		# Grau hist
+		# Grau Medio				
+		grau_medio, dp_grau_medio = graph_tool.stats.vertex_average(g, 'total')
+		grau_medio_in, dp_grau_medio_in = graph_tool.stats.vertex_average(g, 'in')
+		grau_medio_out, dp_grau_medio_out = graph_tool.stats.vertex_average(g, 'out')
+		# Inicializando com um valor existente no grafo
+		grau_max = g.vertex(0).in_degree() + g.vertex(0).out_degree()
+		grau_min = g.vertex(0).in_degree() + g.vertex(0).out_degree()
+		grau_in_max = g.vertex(0).in_degree()
+		grau_in_min = g.vertex(0).in_degree()
+		grau_out_min = g.vertex(0).out_degree()
+		grau_out_max = g.vertex(0).out_degree()
+		for v in vertices:
+			g_in    = g.vertex(v).in_degree()
+			g_out   = g.vertex(v).out_degree()
+			g_total = g_in+g_out
+			if g_in  < grau_in_min: grau_in_min   = g_in
+			if g_in  > grau_in_max: grau_in_max   = g_in
+			if g_out < grau_out_min: grau_out_min = g_out
+			if g_out > grau_out_max: grau_out_max = g_out
+			if g_total > grau_max : grau_max = g_total
+			if g_total < grau_min : grau_min = g_total
+		print('{:<15} -> {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<3}: {:^8.3f}'.format('Grau total', 
+						'Maximo', grau_max, 'minimo', grau_min, 'media', grau_medio, 'dp', dp_grau_medio))
+		if directed:
+			print('{:<15} -> {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<3}: {:^8.3f}'.format('Grau entrada', 
+							'Maximo', grau_in_max, 'minimo', grau_in_min, 'media', grau_medio_in, 'dp', dp_grau_medio_in))
+			print('{:<15} -> {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<3}: {:^8.3f}'.format('Grau saida', 
+							'Maximo', grau_out_max, 'minimo', grau_out_min, 'media', grau_medio_out, 'dp', dp_grau_medio_out))
+			# Grau de entrada hist
+			grau_in_hist = graph_tool.stats.vertex_hist(g, 'in')
+			create_hist(grau_in_hist[0], "$Grau_{k}$", "PDF P[D=k]", graphDir+"deg-in-dist.pdf", "Distribuicao do grau de entrada para "+graphName)
+			# Grau de saida hist
+			grau_out_hist = graph_tool.stats.vertex_hist(g, 'out')
+			create_hist(grau_out_hist[0], "$Grau_{k}$", "PDF P[D=k]", graphDir+"deg-out-dist.pdf", 
+							"Distribuicao do grau de saida para "+graphName)
+
+		# Grau total hist
 		grau_hist = graph_tool.stats.vertex_hist(g, 'total')
-		y = [float(x/sum(grau_hist[0])) for x in grau_hist[0]]
-
-		figure(figsize=(10,6))
-		gca().plot(grau_hist[1][:-1], y, 'bo', alpha=0.7, linestyle='None')
-		subplots_adjust(left=0.2, bottom=0.2)
-		xlabel("$Grau_{k}$")
-		ylabel("PDF P[D=k]")
-		tight_layout()
-		savefig(graphDir+"deg-dist.pdf")
-
-		# Menor distancia
-		# short_dist_map = graph_tool.topology.shortest_distance(g, weights=weight) # A menor distancia entre todos os pares de vertices
-		# mean_short_dist, dp_short_dist = graph_tool.stats.vertex_average(g, short_dist_map) # A menor distancia media para cada vertice com seu dp
-		# shortest_mean_dist = np.amin(mean_short_dist) # O vertice com a menor distancia media
-		# dp_shortest_mean_dist = [dp_short_dist[i] for (i,x) in enumerate(mean_short_dist) if x==shortest_mean_dist][0]
-		# print('{:<15}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Menor dist media', shortest_mean_dist, 'desvio padrao', dp_shortest_mean_dist))
+		create_hist(grau_hist[0], "$Grau_{k}$", "PDF P[D=k]", graphDir+"deg-dist.pdf", "Distribuicao do grau total para "+graphName)
 
 		# Betwenness
 		vb_map, eb_map = graph_tool.centrality.betweenness(g, weight=weight)
+		vb_max = max(vb_map.a)
+		vb_min = min(vb_map.a)
 		vb_media, dp_vb = graph_tool.stats.vertex_average(g, vb_map)
-		print('{:<21}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Betwenness media', vb_media, 'desvio padrao', dp_vb))
+		print('{:<15} -> {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<3}: {:^8.3f}'.format('Betwenness', 
+							'Maximo', vb_max, 'minimo', vb_min, 'media', vb_media, 'dp', dp_vb))
+		create_plot(vb_map.a, "$Grau_{k}$", "$Betwenness_{k}$", graphDir+"betweenness-dist.pdf", "Distribuicao do betweenness para "+graphName)
 
 		# Katz
 		katz_map = graph_tool.centrality.katz(g, weight=weight)
+		katz_max = max(katz_map.a)
+		katz_min = min(katz_map.a)
 		katz_media, dp_katz = graph_tool.stats.vertex_average(g, katz_map)
-		print('{:<21}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Katz media', katz_media, 'desvio padrao', dp_katz))
+		print('{:<15} -> {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<3}: {:^8.3f}'.format('Katz', 
+							'Maximo', katz_max, 'minimo', katz_min, 'media', katz_media, 'dp', dp_katz))
+		create_plot(katz_map.a, "$Grau_{k}$", "$Katz_{k}$", graphDir+"katz-dist.pdf", "Distribuicao de katz para "+graphName)
 
 		# Pagerank
 		pagerank_map = graph_tool.centrality.pagerank(g, weight=weight)
+		pagerank_max = max(pagerank_map.a)
+		pagerank_min = min(pagerank_map.a)
 		pagerank_media, dp_pagerank = graph_tool.stats.vertex_average(g, pagerank_map)
-		print('{:<21}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Pagerank media', pagerank_media, 'desvio padrao', dp_pagerank))
+		print('{:<15} -> {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<3}: {:^8.3f}'.format('Pagerank', 
+							'Maximo', pagerank_max, 'minimo', pagerank_min, 'media', pagerank_media, 'dp', dp_pagerank))
+		create_plot(pagerank_map.a, "$Grau_{k}$", "$Pagerank_{k}$", graphDir+"pagerank-dist.pdf", "Distribuicao do pagerank para "+graphName)
+
+		# Clusterizacao local
+		clust = graph_tool.clustering.local_clustering(g)
+		clust_max = max(clust.a)
+		clust_min = min(clust.a)
+		clust_media, dp_clust = graph_tool.stats.vertex_average(g, clust)
+		print('{:<15} -> {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<8}: {:^8.3f} | {:<3}: {:^8.3f}'.format('Clust. local', 
+							'Maximo', clust_max, 'minimo', clust_min, 'media', clust_media, 'dp', dp_clust))
+		create_plot(clust.a, "$Grau_{k}$", "$Clusterizacao_{k}$", graphDir+"clust-dist.pdf", 
+							"Distribuicao da clusterizacao local para "+graphName)
+
+		# Clusterizacao global
+		global_clust, dp_global_clust = graph_tool.clustering.global_clustering(g)
+		print('{:<15}: {:^8.3f}, {:<3}: {:^8.3f}'.format('Clust. global', global_clust, 'dp', dp_global_clust))
 
 		# Componentes
 		comp, hist = graph_tool.topology.label_components(g, directed=directed)
 		number_of_components = len(np.unique(comp.a))
-		bigger_component = np.unique(np.where(hist==max(hist)))
-		print('{:<21} {:^11}, {:<15}: {:^10}'.format('Conected componentes:', number_of_components, 'bigger', int(bigger_component)))
+		bigger_component = hist[np.unique(np.where(hist==max(hist)))]
+		print('{:<15} {:^8}, {:<8}: {:^8}'.format('Conected comp.:', number_of_components, 'bigger', int(bigger_component)))
 		if number_of_components > 1:
 			x = comp.a
-			figure(figsize=(10,6))
-			gca().hist(x, max(x), facecolor='green', alpha=0.7)
-			subplots_adjust(left=0.2, bottom=0.2)
-			xlabel("Component id")
-			ylabel("Number of vertices")
-			tight_layout()
-			savefig(graphDir+"conected-components.pdf")
+			sizes = hist
+			labels = [str(i) for i in range(len(sizes))]
 
-	# Clusterizacao local
-	clust = graph_tool.clustering.local_clustering(g)
-	clust_media, dp_clust = graph_tool.stats.vertex_average(g, clust)
-	print('{:<21}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Local Clust. media', clust_media, 'desvio padrao', dp_clust))
+			plt.figure(figsize=(6,4))
+			plt.title('Tamanho das componentes conexas de '+graphName)
+			plt.gca().pie(sizes, autopct=my_pct(sizes), shadow=True, startangle=90)
+			plt.gca().axis('equal')
+			plt.savefig(graphDir+"conected-components.pdf")
 
-	# Clusterizacao global
-	global_clust, dp_global_clust = graph_tool.clustering.global_clustering(g)
-	print('{:<21}: {:^10.5f}, {:<15}: {:^10.5f}'.format('Global Clust.', global_clust, 'desvio padrao', dp_global_clust))
-
+		pos = graph_tool.draw.sfdp_layout(g, groups=comp, eweight=weight)
+		graph_tool.draw.graph_draw(g, pos=pos, vertex_text=g.vertex_index, output=graphDir+"graph-draw-sfdp.pdf")
+		pos = graph_tool.draw.arf_layout(g, max_iter=0)
+		graph_tool.draw.graph_draw(g, pos=pos, vertex_text=g.vertex_index, output=graphDir+"graph-draw-arf.pdf")
